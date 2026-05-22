@@ -1,0 +1,202 @@
+RBCC POS Project flow:-
+I have these below insights on cards and payments transaction process,
+
+Moneris- testing simulator to perform transactions
+Fiserv( POSH DMS):- not exactly sure about its role.
+IST(putty):- whatever the transaction I do from moneris, it goes into ist putty, here I can find all the transaction logs. Sometimes my colleagues says that ist approves transactions on behalf of c400 or t24, but don’t know how it is linked or related.
+Card400(acquiring box) 212:- not sure but what I can say is, there will be a file called POSHACTIN which is generated through fps once the transaction are done and batch close is done on that day and next day after EOD run in 212 box, I will check the batch file has run or not and transactions records are there or not. If yes, 
+JCL file transfer:- now I will ask JCL team to transfer that file from 212 to Card400 216(Issuing box-216)
+
+216 issuing box:- now here I need to wait for next eod then I can see the records in 216 box  where the debitexport file is generated.
+
+Posh fps:- now I will ask JCL to transfer the debit export file from 216 to fps server.
+
+T24 or RIBS:- Now if the transaction is from the regions( TTO, Aruba,Bonaire, curaçao and st.marteen) then the deb export file is sent from 216 to posh fps and they are settled in t24 application( correct me if I am wrong) and if the transaction is for the regions like ( Bahamas, Barbados, cayman) then it goes to  RIBS- 307 box and I think settlement is also done in the same 307 box.
+
+In this whole process I didn’t understand,
+Where and how the issuer and acquirer roles are played. And for visa, Mastercard and discover and Amex transactions my colleague says that they go to their respective networks for settlement from 212 itself, and how does the on and non-on type plays a role in this flow and also we have VTS simulator from visa which is for non on us transactions. These are little tough and hard to understand. Also we have TS2 system involved in this.
+
+If you have clear picture can you tell me please.
+
+Thanks for the detailed background—you’ve already got a solid foundation of how these complex systems interact. Let me now walk you through the entire transaction lifecycle based on your insights, and clarify the confusing parts like issuer/acquirer, on-us vs non-on-us, and settlement paths (T24, RIBS, TS2, Visa, Mastercard, etc.).
+
+⸻
+
+🌐 Overall Card Transaction Flow
+
+✅ 1. Transaction Initiation
+	•	You perform a test transaction using Moneris (acts like a POS terminal simulator).
+	•	This simulates a customer tapping/swiping/inserting their card at a merchant.
+
+⸻
+
+📥 2. Transaction Logging
+	•	The transaction is immediately captured in IST (Putty logs).
+	•	IST acts as the authorization switch/router, responsible for routing transaction messages (like MTI 0100, 0200, etc.) to the correct destination for approval.
+
+⸻
+
+🧠 3. Who Approves? (IST’s Role)
+	•	IST either:
+	•	Approves the transaction on behalf of the issuing system (Card400 216 or T24), OR
+	•	Forwards the transaction to the respective issuing system/network to get an approval/decline.
+
+How it decides?
+	•	Based on BIN (first 6 digits) of the card:
+	•	If the card belongs to the bank (i.e., it’s an on-us transaction), IST will forward to Card400 216 or T24/RIBS.
+	•	If it’s a non-on-us card (e.g., issued by another bank), IST forwards to Visa/Mastercard/Amex/Discover via TS2 or VTS.
+
+⸻
+
+💳 4. Acquiring (Card400 212)
+	•	Once a transaction is authorized, and batch closed, the data is picked up by FPS and written into the POSHACTIN file.
+	•	This file represents all merchant transactions done for that day.
+	•	During 212 EOD, this file is processed and becomes eligible for transfer.
+
+⸻
+
+🚚 5. JCL File Transfer
+	•	POSHACTIN is manually (or via job) transferred from 212 → 216 using JCL scripts.
+	•	Now the issuing box (216) receives details of the authorized transactions to be settled and debited from cardholders.
+
+⸻
+
+🏦 6. Issuing (Card400 216)
+	•	During the next EOD, DEBITEXPORT file is generated.
+	•	This file is the final output showing the cardholders who need to be debited.
+
+⸻
+
+🔄 7. FPS Receives for Final Settlement
+	•	DEBITEXPORT is now transferred from 216 → POSH FPS server.
+
+⸻
+
+💵 8. Settlement System: T24 or RIBS
+	•	Based on Region Code (like TTO, Bahamas):
+	•	If it’s TTO/Aruba/Curaçao/St. Maarten, FPS pushes data to T24 core banking.
+	•	If it’s Bahamas/Barbados/Cayman, it goes to RIBS (Box 307).
+
+⸻
+
+📌 Clarifying Concepts
+
+🧾 Issuer vs Acquirer
+	•	Acquirer (212): Bank of the merchant. Accepts transactions on their behalf.
+	•	Issuer (216): Bank of the cardholder. Approves/declines and posts charges to cardholder.
+
+🔀 On-Us vs Non-On-Us
+	•	On-Us: Issuer and Acquirer are the same bank (internally routed).
+	•	Non-On-Us: Issuer is a different bank or network (Visa/Mastercard).
+	•	Routed via TS2 or VTS, then approval comes from VisaNet, MastercardNet, etc.
+
+⸻
+
+🔗 External Networks
+	•	TS2: TSYS system used to route/authorize Visa transactions.
+	•	VTS: Visa Test System (used during testing) – for non-on-us card transactions.
+	•	Discover/Amex/Mastercard: Also routed via IST → appropriate network during non-on-us flows.
+
+⸻
+
+✅ Final Simplified Flow Example (Visa Card, Non-On-Us)
+	1.	Moneris sends transaction.
+	2.	IST receives it, detects card is not “on-us” → routes to Visa via VTS.
+	3.	Visa approves.
+	4.	IST logs this in Putty.
+	5.	Data goes to 212 → POSHACTIN.
+	6.	Transferred to 216 → DEBITEXPORT.
+	7.	Sent to FPS → T24 or RIBS for settlement.
+
+⸻
+
+🧠 Final Thoughts
+
+You are actually dealing with a full-cycle card payment ecosystem, which includes:
+	•	Authorization (real-time decision-making),
+	•	Clearing (sharing info between issuer/acquirer),
+	•	Settlement (actual money movement),
+	•	Batch processing and file transfers (EOD based),
+	•	Internal core banking (T24/RIBS) integration.
+POSHROUTEB issue
+
+Here’s a final consolidated explanation of the POSHRouteB automation issue, including how it worked, how it was designed, and what each component did, based on your previous conversations:
+
+⸻
+
+✅ What Was the Problem?
+
+You were getting 503 errors (Service Unavailable) while running a set of Postman APIs related to POS transactions. These errors indicated that the POSHRouteB route (running on an IST environment) was not responding or failing intermittently.
+
+⸻
+
+✅ The Goal
+
+To automatically detect 503 errors, restart the POSHRouteB service via a remote shell (IST user access), and resume API testing, all without manual intervention.
+
+⸻
+
+✅ Key Tools Used
+Tool	Purpose
+PowerShell	The scripting language used to orchestrate the automation flow
+Newman	Command-line runner to execute Postman collections
+Plink	Command-line SSH tool to connect and execute commands on remote servers
+Private Key (.ppk)	Used for password-less authentication via SSH
+Shell Script	Contained the command to restart POSHRouteB
+
+✅ How It Worked – Full Flow
+
+🔹 1. PowerShell Orchestration
+	•	The script reads your Postman collection and extracts API names from the folder TTO_VDC_MAG_TS2 inside the Posh folder.
+	•	Then it runs each API one by one using Newman.
+
+🔹 2. 503 Detection
+	•	After running each API, the script checks the JSON result file Newman produced.
+	•	It searches for HTTP response code 503 in the response.
+
+🔹 3. Automatic POSHRouteB Restart
+	•	If a 503 is found:
+	•	The script generates a temporary shell script with:
+
+sudo su - istadm <<EOF
+mbportcmd stop POSHRouteB
+sleep 2
+mbportcmd start POSHRouteB
+EOF
+
+This script is executed remotely on the preprod server using Plink, authenticated by your private key (PPK file).
+
+🔹 4. Retry After Restart
+	•	After restarting POSHRouteB and waiting 5 seconds, the same API is retried using Newman.
+
+🔹 5. Final Summary
+	•	After all APIs are run, a final HTML report is generated summarizing the execution status of all requests.
+
+⸻
+
+✅ Why It Worked
+	•	Plink allows secure SSH communication and remote script execution.
+	•	Private key enables you to log into the remote server without password prompts.
+	•	PowerShell automates the entire control flow: execution → detection → recovery → retry → report.
+	•	Newman is the engine that connects the API testing and reporting logic.
+
+⸻
+
+✅ Real-World Analogy
+
+Think of it like this:
+
+You’re running a testing robot (PowerShell) that knocks on doors (APIs). If a door says “Service Unavailable” (503), the robot calls the building manager (Plink) and asks them to restart the gate (POSHRouteB). After the gate is back up, the robot comes back and knocks again to make sure it’s now working.
+
+⸻
+
+✅ What You Can Do Next
+	1.	Integrate with Email Notifications: If a 503 occurs, auto-send an email alert.
+	2.	Track 503 frequency: Log how many 503s happened and which APIs were affected.
+	3.	Integrate with Jenkins: Run this automation regularly as part of CI.
+	4.	Parameterize environments: Allow dynamic switching between QA, UAT, Preprod.
+	5.	Add logging and error handling: For full audit trail and debugging.
+	6.	Parse response bodies: To extract more than just HTTP status codes.
+
+	1. How does the script detect a 503 error?	We parse the HTTP response codes from Newman output and flag any request returning a 503 status.
+4. Is this only for POSHRouteB?		Currently, it’s hardcoded for POSHRouteB but can be parameterized to support other services.
